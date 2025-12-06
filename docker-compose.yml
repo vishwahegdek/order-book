@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    container_name: order-book-app
+    restart: always
+    ports:
+      - "80:3000"
+    depends_on:
+      - db
+    environment:
+      - PORT=3000
+      - PGHOST=db
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGDATABASE=order_book
+      - PGPORT=5432
+
+  db:
+    image: postgres:15-alpine
+    container_name: order-book-db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=order_book
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
+

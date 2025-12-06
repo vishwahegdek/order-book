@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= order ? 'Edit Order' : 'New Order' %> - Order Book</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/forms.css" />
+</head>
+<body>
+  <div class="page">
+    <% const isEdit = !!order; %>
+
+    <header class="topbar">
+      <div>
+        <h1><%= isEdit ? 'Edit Order' : 'New Order' %></h1>
+        <p><%= isEdit ? 'Update this order.' : 'Create an order with customer and product details.' %></p>
+      </div>
+      <button class="btn-ghost" onclick="location.href='/orders'">
+        <span class="icon">←</span>
+        <span>Back to Orders</span>
+      </button>
+    </header>
+
+    <section class="card">
+      <form id="order-form">
+        <!-- Customer -->
+        <div class="section-title">
+          <span class="dot"></span>
+          <span>Customer</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="field autocomplete" data-type="customer">
+            <label>Customer</label>
+            <input
+              type="text"
+              id="customer-input"
+              name="customer_name"
+              placeholder="Type to search or create new"
+              autocomplete="off"
+              value="<%= order ? (order.customer_name || '') : '' %>"
+            />
+            <input
+              type="hidden"
+              id="customer-id"
+              name="customer_id"
+              value="<%= order ? (order.customer_id || '') : '' %>"
+            />
+            <div class="autocomplete-list" id="customer-list"></div>
+            <div class="hint">If not found in list, this name will be saved as a new customer.</div>
+          </div>
+
+          <div class="field">
+            <label>Phone</label>
+            <input
+              type="tel"
+              name="customer_phone"
+              placeholder="Eg. 98xx xxxxx"
+              value="<%= order ? (order.customer_phone || '') : '' %>"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Address / Area</label>
+          <input
+            type="text"
+            name="customer_address"
+            placeholder="Eg. Kumta Road, Sirsi"
+            value="<%= order ? (order.customer_address || '') : '' %>"
+          />
+          <div class="hint">Village / area is enough for quick recall.</div>
+        </div>
+
+        <!-- Order meta -->
+        <div class="section-title">
+          <span class="dot"></span>
+          <span>Order Details</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Order number</label>
+            <input
+              type="text"
+              name="order_no"
+              placeholder="Auto / 2025-0012"
+              value="<%= order ? (order.order_no || '') : '' %>"
+            />
+          </div>
+
+          <div class="field">
+            <label>Order date</label>
+            <input
+              type="date"
+              name="order_date"
+              value="<%= order && order.order_date ? order.order_date.toISOString().slice(0,10) : '' %>"
+            />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Due date</label>
+            <input
+              type="date"
+              name="due_date"
+              value="<%= order && order.due_date ? order.due_date.toISOString().slice(0,10) : '' %>"
+            />
+          </div>
+
+          <div class="field">
+            <label>Status</label>
+            <% const st = order ? order.status : 'confirmed'; %>
+            <select name="status">
+              <option value="confirmed" <%= st === 'confirmed' ? 'selected' : '' %>>Confirmed</option>
+              <option value="enquired"  <%= st === 'enquired'  ? 'selected' : '' %>>Enquired</option>
+              <option value="production"<%= st === 'production'? 'selected' : '' %>>In Production</option>
+              <option value="ready"     <%= st === 'ready'     ? 'selected' : '' %>>Ready</option>
+              <option value="delivered" <%= st === 'delivered' ? 'selected' : '' %>>Delivered</option>
+              <option value="cancelled" <%= st === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Products section -->
+        <div class="section-title">
+          <span class="dot"></span>
+          <span>Products</span>
+        </div>
+
+        <div class="products-table-wrapper">
+          <table id="products-table">
+            <thead>
+              <tr>
+                <th style="width: 36%;">Product</th>
+                <th style="width: 26%;">Description</th>
+                <th style="width: 10%;">Qty</th>
+                <th style="width: 14%;">Unit Price</th>
+                <th style="width: 14%;">Line Total</th>
+                <th style="width: 6%;"></th>
+              </tr>
+            </thead>
+            <tbody id="products-body">
+              <!-- Rows injected by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div class="add-row-container">
+          <button type="button" class="btn-link" id="add-product-btn">
+            <span>＋ Add product</span>
+          </button>
+        </div>
+
+        <!-- Payment -->
+        <div class="section-title">
+          <span class="dot"></span>
+          <span>Payment</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Total amount (₹)</label>
+            <input
+              type="number"
+              id="total-amount"
+              name="total_amount"
+              placeholder="Auto from products"
+              min="0"
+              step="0.01"
+              readonly
+              value="<%= order ? Number(order.total_amount || 0) : 0 %>"
+            />
+          </div>
+
+          <div class="field">
+            <label>Advance taken (₹)</label>
+            <input
+              type="number"
+              id="advance-amount"
+              name="advance_amount"
+              placeholder="Eg. 20000"
+              min="0"
+              step="0.01"
+              value="<%= order ? Number(order.advance_amount || 0) : '' %>"
+            />
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-row">
+            <span class="label">Balance</span>
+            <span class="value" id="balance-display">₹0</span>
+          </div>
+          <div class="summary-row">
+            <span class="label">Payment status</span>
+            <span class="value" id="payment-status-text">Not started</span>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="section-title">
+          <span class="dot"></span>
+          <span>Notes</span>
+        </div>
+
+        <div class="field">
+          <label>Internal notes</label>
+          <textarea
+            name="notes"
+            placeholder="Eg. Wants darker polish, deliver after 5 PM, coordinate with driver."
+          ><%= order ? (order.notes || '') : '' %></textarea>
+        </div>
+
+        <div class="footer-actions">
+          <div class="footer-left">
+            <%= isEdit ? ('Editing order #' + order.id) : 'Creating new order' %>
+          </div>
+          <button type="submit" class="btn-primary">
+            <span class="icon">💾</span>
+            <span><%= isEdit ? 'Update Order' : 'Save Order' %></span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    const existingOrder = <%- JSON.stringify(order || null) %>;
+
+    // === CONFIG: backend endpoints ===
+    const CUSTOMER_API = "/api/customers?query=";
+    const PRODUCT_API  = "/api/products?query=";
+    const ORDER_API    = existingOrder ? `/api/orders/${existingOrder.id}` : "/api/orders";
+
+    // ---------- Generic autocomplete ----------
+    function setupAutocomplete(inputEl, listEl, fetchUrlBuilder, onSelect, extraFormatter) {
+      let timeoutId = null;
+
+      inputEl.addEventListener("input", function () {
+        const query = this.value.trim();
+        inputEl.dataset.isNew = query ? "true" : "false";
+
+        listEl.innerHTML = "";
+        listEl.style.display = "none";
+        if (!query) return;
+
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(async () => {
+          try {
+            const res = await fetch(fetchUrlBuilder(encodeURIComponent(query)));
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!Array.isArray(data) || data.length === 0) {
+              listEl.style.display = "none";
+              return;
+            }
+            listEl.innerHTML = "";
+            data.forEach(item => {
+              const div = document.createElement("div");
+              div.className = "autocomplete-item";
+
+              const sub = extraFormatter ? extraFormatter(item) : "";
+              div.innerHTML = `
+                <span class="autocomplete-item-main">${item.name}</span>
+                ${sub ? `<span class="autocomplete-item-sub">${sub}</span>` : ""}
+              `;
+
+              div.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                onSelect(item);
+                listEl.style.display = "none";
+              });
+
+              listEl.appendChild(div);
+            });
+            listEl.style.display = "block";
+          } catch (e) {
+            console.error("Autocomplete error:", e);
+          }
+        }, 250);
+      });
+
+      document.addEventListener("click", function (e) {
+        if (!listEl.contains(e.target) && e.target !== inputEl) {
+          listEl.style.display = "none";
+        }
+      });
+    }
+
+    // ---------- Product rows logic ----------
+    const productsBody        = document.getElementById("products-body");
+    const addProductBtn       = document.getElementById("add-product-btn");
+    const totalAmountInput    = document.getElementById("total-amount");
+    const advanceAmountInput  = document.getElementById("advance-amount");
+    const balanceDisplay      = document.getElementById("balance-display");
+    const paymentStatusText   = document.getElementById("payment-status-text");
+
+    function addProductRow(initial = {}) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>
+          <div class="field autocomplete" data-type="product">
+            <input type="text" class="product-name-input" placeholder="Type to search product" autocomplete="off" />
+            <input type="hidden" class="product-id-input" />
+            <div class="autocomplete-list"></div>
+          </div>
+        </td>
+        <td>
+          <input type="text" class="product-desc-input" placeholder="Eg. Teak, carved back" />
+        </td>
+        <td>
+          <input type="number" class="product-qty-input" min="0" step="1" />
+        </td>
+        <td>
+          <input type="number" class="product-price-input" min="0" step="0.01" />
+          <div class="hint price-hint">Default price loaded from product. You can change it for this order only.</div>
+        </td>
+        <td>
+          <span class="line-total-display">₹0</span>
+        </td>
+        <td>
+          <button type="button" class="btn-small danger remove-row-btn">✕</button>
+        </td>
+      `;
+
+      productsBody.appendChild(tr);
+
+      const nameInput   = tr.querySelector(".product-name-input");
+      const idInput     = tr.querySelector(".product-id-input");
+      const descInput   = tr.querySelector(".product-desc-input");
+      const qtyInput    = tr.querySelector(".product-qty-input");
+      const priceInput  = tr.querySelector(".product-price-input");
+      const lineTotalEl = tr.querySelector(".line-total-display");
+      const listEl      = tr.querySelector(".autocomplete-list");
+      const removeBtn   = tr.querySelector(".remove-row-btn");
+
+      // prefill if editing
+      if (initial.name)        nameInput.value  = initial.name;
+      if (initial.product_id)  idInput.value    = initial.product_id;
+      if (initial.description) descInput.value  = initial.description;
+      if (initial.quantity != null) qtyInput.value = initial.quantity;
+      else qtyInput.value = 1;
+      if (initial.unit_price != null) priceInput.value = initial.unit_price;
+
+      setupAutocomplete(
+        nameInput,
+        listEl,
+        (query) => PRODUCT_API + query,
+        (product) => {
+          idInput.value = product.id;
+          nameInput.value = product.name;
+          nameInput.dataset.isNew = "false";
+
+          if (product.default_unit_price != null) {
+            priceInput.value = product.default_unit_price;
+          }
+          recalcLineAndTotals();
+        },
+        (product) => product.sku ? product.sku : ""
+      );
+
+      nameInput.addEventListener("input", () => {
+        idInput.value = "";
+        nameInput.dataset.isNew = nameInput.value.trim() ? "true" : "false";
+      });
+
+      function recalcLineAndTotals() {
+        const qty   = parseFloat(qtyInput.value)   || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const total = qty * price;
+        lineTotalEl.textContent = "₹" + total.toLocaleString("en-IN");
+        recalcOrderTotals();
+      }
+
+      qtyInput.addEventListener("input", recalcLineAndTotals);
+      priceInput.addEventListener("input", recalcLineAndTotals);
+      removeBtn.addEventListener("click", () => {
+        tr.remove();
+        recalcOrderTotals();
+      });
+
+      recalcLineAndTotals();
+    }
+
+    function recalcOrderTotals() {
+      let total = 0;
+      productsBody.querySelectorAll("tr").forEach(tr => {
+        const qty   = parseFloat(tr.querySelector(".product-qty-input")?.value)   || 0;
+        const price = parseFloat(tr.querySelector(".product-price-input")?.value) || 0;
+        total += qty * price;
+      });
+      totalAmountInput.value = total;
+      const advance = parseFloat(advanceAmountInput.value) || 0;
+      const balance = Math.max(total - advance, 0);
+      balanceDisplay.textContent = "₹" + balance.toLocaleString("en-IN");
+
+      let status = "Not started";
+      if (total === 0 && advance === 0) status = "Not started";
+      else if (advance === 0 && total > 0) status = "No advance";
+      else if (advance > 0 && advance < total) status = "Partially paid";
+      else if (advance >= total && total > 0) status = "Paid";
+      paymentStatusText.textContent = status;
+    }
+
+    addProductBtn.addEventListener("click", () => addProductRow());
+    advanceAmountInput.addEventListener("input", recalcOrderTotals);
+
+    // ---------- Customer autocomplete + locking ----------
+    const customerInput   = document.getElementById("customer-input");
+    const customerIdInput = document.getElementById("customer-id");
+    const customerList    = document.getElementById("customer-list");
+    const phoneInput      = document.querySelector('input[name="customer_phone"]');
+    const addrInput       = document.querySelector('input[name="customer_address"]');
+
+    function setCustomerLock(locked) {
+      phoneInput.readOnly = locked;
+      addrInput.readOnly  = locked;
+      phoneInput.classList.toggle("locked", locked);
+      addrInput.classList.toggle("locked", locked);
+    }
+
+    setupAutocomplete(
+      customerInput,
+      customerList,
+      (query) => CUSTOMER_API + query,
+      (customer) => {
+        customerInput.value       = customer.name;
+        customerInput.dataset.isNew = "false";
+        customerIdInput.value     = customer.id;
+
+        phoneInput.value = customer.phone   || "";
+        addrInput.value  = customer.address || "";
+
+        setCustomerLock(true);
+      },
+      (customer) => {
+        let parts = [];
+        if (customer.phone)   parts.push(customer.phone);
+        if (customer.address) parts.push(customer.address);
+        return parts.join(" • ");
+      }
+    );
+
+    customerInput.addEventListener("input", () => {
+      const hasText = customerInput.value.trim().length > 0;
+
+      if (!hasText) {
+        customerInput.dataset.isNew = "false";
+        customerIdInput.value = "";
+        setCustomerLock(false);
+        phoneInput.value = "";
+        addrInput.value  = "";
+      } else {
+        customerInput.dataset.isNew = "true";
+        customerIdInput.value = "";
+        setCustomerLock(false);
+      }
+    });
+
+    // If editing and customer_id exists, lock fields initially
+    if (existingOrder && existingOrder.customer_id) {
+      setCustomerLock(true);
+    }
+
+    // ---------- Bootstrap rows from existing order or blank ----------
+    if (existingOrder && Array.isArray(existingOrder.items) && existingOrder.items.length) {
+      existingOrder.items.forEach(item => {
+        addProductRow({
+          name:        item.product_name,
+          description: item.description,
+          quantity:    item.quantity,
+          unit_price:  item.unit_price,
+          product_id:  item.product_id
+        });
+      });
+    } else {
+      addProductRow();
+    }
+
+    // Initial totals
+    recalcOrderTotals();
+
+    // ---------- Form submission ----------
+    document.getElementById("order-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      const payload = Object.fromEntries(formData.entries());
+
+      const items = [];
+      productsBody.querySelectorAll("tr").forEach(tr => {
+        const name = tr.querySelector(".product-name-input")?.value.trim();
+        const id   = tr.querySelector(".product-id-input")?.value;
+        const desc = tr.querySelector(".product-desc-input")?.value.trim();
+        const qty  = parseFloat(tr.querySelector(".product-qty-input")?.value) || 0;
+        const price= parseFloat(tr.querySelector(".product-price-input")?.value) || 0;
+
+        if (!name && qty === 0 && price === 0 && !desc) return;
+
+        items.push({
+          product_id: id || null,
+          name: name || null,
+          description: desc || null,
+          quantity: qty,
+          unit_price: price
+        });
+      });
+
+      payload.items = items;
+      payload.total_amount   = parseFloat(payload.total_amount   || "0") || 0;
+      payload.advance_amount = parseFloat(payload.advance_amount || "0") || 0;
+
+      try {
+        const res = await fetch(ORDER_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          alert("Failed to save order.");
+          return;
+        }
+        const data = await res.json();
+        alert("Order saved with ID: " + data.id);
+        window.location.href = "/orders";
+      } catch (err) {
+        console.error(err);
+        alert("Error while saving order.");
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Order Book - Orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/order-list.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div>
+        <h1>Order Book</h1>
+        <p>Track all furniture orders, status and payments.</p>
+      </div>
+      <button class="btn-primary" onclick="location.href='/orders/new'">
+        <span>＋</span>
+        <span>New Order</span>
+      </button>
+    </header>
+
+    <section class="card">
+      <div class="orders-header-row">
+        <div class="orders-meta">
+          Total orders: <strong><%= orders.length %></strong>
+        </div>
+        <div class="orders-search">
+          <!-- Future search bar -->
+          <input
+            type="text"
+            placeholder="(Future) search by customer or order no..."
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Order No</th>
+              <th>Customer</th>
+              <th>Order items</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Due date</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (orders.length === 0) { %>
+              <tr>
+                <td colspan="8" class="orders-empty">
+                  No orders yet. Click "New Order" to add one.
+                </td>
+              </tr>
+            <% } else { %>
+              <% orders.forEach(o => { %>
+                <tr>
+                  <td>
+                    <strong><%= o.order_no || ('#' + o.id) %></strong>
+                  </td>
+
+                  <td>
+                    <%= o.customer_name || '—' %><br />
+                    <span class="text-muted"><%= o.customer_address || '' %></span>
+                  </td>
+
+                  <td>
+                    <% if (o.items_summary) { %>
+                      <span class="text-main"><%= o.items_summary %></span>
+                    <% } else { %>
+                      <span class="text-muted">No items</span>
+                    <% } %>
+                  </td>
+
+                  <td>
+                    <span class="badge-status"><%= o.status || '—' %></span>
+                  </td>
+
+                  <td>
+                    <span class="amount">
+                      ₹<%= Number(o.advance_amount || 0).toLocaleString('en-IN') %>
+                    </span>
+                    <span class="amount-muted">
+                      / ₹<%= Number(o.total_amount || 0).toLocaleString('en-IN') %>
+                    </span>
+                  </td>
+
+                  <td>
+                    <%= o.due_date ? o.due_date.toISOString().slice(0, 10) : '—' %>
+                  </td>
+
+                  <td>
+                    <%= o.created_at ? o.created_at.toISOString().slice(0, 10) : '—' %>
+                  </td>
+
+                  <td>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                      <button 
+                        class="btn-small success" 
+                        onclick="copyOrderDetails(this, {
+                          orderNo: '<%= o.order_no || ('#' + o.id) %>',
+                          customerName: '<%= (o.customer_name || '').replace(/'/g, "\\'") %>',
+                          address: '<%= (o.customer_address || '').replace(/'/g, "\\'") %>',
+                          items: '<%= (o.items_summary || 'No items').replace(/'/g, "\\'") %>',
+                          advance: '<%= Number(o.advance_amount || 0).toLocaleString('en-IN') %>',
+                          total: '<%= Number(o.total_amount || 0).toLocaleString('en-IN') %>',
+                          dueDate: '<%= o.due_date ? o.due_date.toISOString().slice(0, 10) : '—' %>'
+                        })"
+                      >
+                        📋 Copy
+                      </button>
+                      <a href="/orders/<%= o.id %>/edit" class="btn-small">
+                        Edit
+                      </a>
+                      <form action="/orders/<%= o.id %>/delete" method="POST" onsubmit="return confirm('Delete this order?');">
+                        <button type="submit" class="btn-small danger">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    function copyOrderDetails(btn, order) {
+      // Format the order details for WhatsApp
+      const text = `📋 *Order Details*
+
+*Order No:* ${order.orderNo}
+
+*Customer Name:* ${order.customerName}
+*Address:* ${order.address}
+
+*Order Items:*
+${order.items}
+
+*Payment:*
+Advance Paid: ₹${order.advance}
+Total Amount: ₹${order.total}
+
+*Expected Delivery:* ${order.dueDate}
+
+Thank you for your order! 🙏`;
+
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showCopySuccess(btn);
+        }).catch(err => {
+          // Fallback to older method
+          fallbackCopy(text, btn);
+        });
+      } else {
+        // Use fallback for older browsers
+        fallbackCopy(text, btn);
+      }
+    }
+
+    function fallbackCopy(text, btn) {
+      // Create a temporary textarea
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      textarea.style.width = '2em';
+      textarea.style.height = '2em';
+      textarea.style.padding = '0';
+      textarea.style.border = 'none';
+      textarea.style.outline = 'none';
+      textarea.style.boxShadow = 'none';
+      textarea.style.background = 'transparent';
+      textarea.style.opacity = '0';
+      
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showCopySuccess(btn);
+        } else {
+          alert('Failed to copy. Please try again.');
+        }
+      } catch (err) {
+        alert('Failed to copy. Please try again.');
+        console.error('Fallback copy failed:', err);
+      }
+      
+      document.body.removeChild(textarea);
+    }
+
+    function showCopySuccess(btn) {
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '✓ Copied!';
+      btn.classList.add('copied');
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
